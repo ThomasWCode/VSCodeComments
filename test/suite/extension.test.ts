@@ -2,12 +2,13 @@
 // anchoring, changes on disk and export, inside a real VS Code.
 import * as assert from 'assert';
 import * as fs from 'fs';
+import * as path from 'path';
 import * as vscode from 'vscode';
 import type { MarginNotesApi } from '../../src/extension';
 import type { NoteCommentItem } from '../../src/commentController';
 import { collectEntries, toHtml, toMarkdown } from '../../src/export';
 import { parseSidecar } from '../../src/store';
-import { api, key, reset, SAMPLE, samplePath, sidecar, sleep, waitFor } from './helpers';
+import { api, key, reset, SAMPLE, samplePath, sidecar, sleep, waitFor, workspaceRoot } from './helpers';
 
 describe('Margin Notes round trip', function () {
   this.timeout(30000);
@@ -262,6 +263,30 @@ describe('Margin Notes round trip', function () {
     await sleep(1500);
     assert.ok(a.model.find(again.id), 'the new thread is still there');
     assert.ok(fs.existsSync(sidecar()));
+  });
+
+  it('moves comments and their sidecar when the file is renamed in VS Code', async () => {
+    const t = create(3, 5);
+    await a.store.flush();
+    const renamed = vscode.Uri.file(path.join(workspaceRoot(), 'renamed.py'));
+    const edit = new vscode.WorkspaceEdit();
+    edit.renameFile(editor.document.uri, renamed);
+    try {
+      assert.ok(await vscode.workspace.applyEdit(edit));
+      await waitFor(() => a.model.threads({ root: workspaceRoot(), rel: 'renamed.py' }).length === 1, 'the move');
+      assert.strictEqual(a.model.threads(key()).length, 0);
+      await a.store.flush();
+      assert.ok(fs.existsSync(path.join(workspaceRoot(), '.codecomments', 'renamed.py.json')));
+      assert.ok(!fs.existsSync(sidecar()), 'the old sidecar is gone');
+      await waitFor(() => a.native.native(t.id)?.uri.fsPath === renamed.fsPath, 'the inline thread on the new file');
+    } finally {
+      await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+      for (const { thread } of a.model.all()) {
+        a.model.removeThread(thread.id);
+      }
+      await a.store.flush();
+      fs.rmSync(renamed.fsPath, { force: true });
+    }
   });
 
   it('hides resolved threads when showResolved is off', async () => {

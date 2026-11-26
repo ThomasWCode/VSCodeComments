@@ -313,6 +313,36 @@ export function activate(context: vscode.ExtensionContext): MarginNotesApi {
       }
       await loadAll();
     }),
+    // A file or folder renamed or moved in VS Code: its comments move with it.
+    vscode.workspace.onDidRenameFiles(async (e) => {
+      // Queued writes finish under the old paths first, so none recreates them later.
+      await store.flush();
+      for (const { oldUri, newUri } of e.files) {
+        const from = keyFor(oldUri);
+        const to = keyFor(newUri);
+        if (!from || !to) {
+          continue;
+        }
+        for (const key of model.keys()) {
+          if (key.root !== from.root) {
+            continue;
+          }
+          let rel: string;
+          if (key.rel === from.rel) {
+            rel = to.rel;
+          } else if (key.rel.startsWith(from.rel + '/')) {
+            rel = to.rel + key.rel.slice(from.rel.length);
+          } else {
+            continue;
+          }
+          const target: FileKey = { root: to.root, rel };
+          const threads = model.threads(key);
+          // Old first: its native threads are dropped, then drawn again at the new path.
+          model.setThreads(key, [], 'user', true);
+          model.setThreads(target, mergeLoaded(model.threads(target), threads), 'user', true);
+        }
+      }
+    }),
     vscode.window.onDidChangeVisibleTextEditors((editors) => {
       for (const e of editors) {
         if (e.viewColumn !== undefined) {

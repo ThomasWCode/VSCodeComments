@@ -20,17 +20,25 @@
   /** Box elements by thread id, with the content signature they were built from. */
   /** @type {Map<string, {el: HTMLElement, sig: string}>} */
   const boxes = new Map();
+  // VS Code throws a hidden webview's page away: unsent text is kept in its
+  // state, which survives that, and restored here.
+  const saved = vscode.getState() || {};
   /** Reply drafts by thread id, kept across rebuilds. */
   /** @type {Map<string, string>} */
-  const replyDrafts = new Map();
+  const replyDrafts = new Map(Array.isArray(saved.replyDrafts) ? saved.replyDrafts : []);
   /** Comments being edited: comment id -> draft text. */
   /** @type {Map<string, string>} */
-  const editing = new Map();
+  const editing = new Map(Array.isArray(saved.editing) ? saved.editing : []);
   /** @type {string | undefined} */
   let activeId = undefined;
 
+  function saveDrafts() {
+    vscode.setState({ replyDrafts: [...replyDrafts], editing: [...editing] });
+  }
+
   function post(message) {
     vscode.postMessage(message);
+    saveDrafts();
   }
 
   // Report script errors to the extension, where tests can see them.
@@ -314,6 +322,7 @@
     if (b) {
       b.sig = '';
     }
+    saveDrafts();
     render();
   }
 
@@ -383,6 +392,7 @@
     } else if (target.classList.contains('edit')) {
       editing.set(/** @type {string} */ (target.getAttribute('data-cid')), target.value);
     }
+    saveDrafts();
   });
 
   document.addEventListener('change', (e) => {
