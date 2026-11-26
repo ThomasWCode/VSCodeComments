@@ -50,13 +50,17 @@ export async function reset(a: MarginNotesApi): Promise<vscode.TextEditor> {
   if (a.panel.isOpen) {
     a.panel.toggle();
   }
+  // A test can leave unsaved edits: VS Code won't reload a dirty document
+  // from disk, so revert those first.
+  for (const d of vscode.workspace.textDocuments.filter((t) => t.isDirty && t.uri.scheme === 'file')) {
+    await vscode.window.showTextDocument(d);
+    await vscode.commands.executeCommand('workbench.action.files.revert');
+  }
   await vscode.commands.executeCommand('workbench.action.closeAllEditors');
   fs.writeFileSync(samplePath(), SAMPLE);
   const doc = await vscode.workspace.openTextDocument(samplePath());
-  if (doc.getText() !== SAMPLE) {
-    // VS Code may not have noticed the rewrite yet.
-    await waitFor(() => doc.getText() === SAMPLE, 'sample.py reloaded');
-  }
+  // VS Code may not have noticed the rewrite yet.
+  await waitFor(() => !doc.isDirty && doc.getText() === SAMPLE, 'sample.py reloaded');
   const editor = await vscode.window.showTextDocument(doc, {
     viewColumn: vscode.ViewColumn.One,
     selection: new vscode.Range(0, 0, 0, 0),
