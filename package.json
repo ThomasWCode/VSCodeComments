@@ -2,7 +2,7 @@
   "name": "margin-notes",
   "displayName": "Margin Notes",
   "description": "Word-style comment boxes for code: inline comment threads plus a margin panel beside the editor.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "thomaswcode",
   "license": "MIT",
   "repository": {
@@ -272,6 +272,14 @@
         }
       ]
     },
+    "keybindings": [
+      {
+        "command": "marginNotes.addComment",
+        "key": "ctrl+alt+m",
+        "mac": "cmd+alt+m",
+        "when": "editorTextFocus && resourceScheme == file"
+      }
+    ],
     "viewsContainers": {
       "activitybar": [
         {
