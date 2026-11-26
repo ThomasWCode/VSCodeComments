@@ -97,6 +97,10 @@ export function shiftAnchor(a: AnchorRange, c: TextChange): ShiftResult {
     }
     return { kind: 'moved', range: toRange(nA, nB) };
   }
+  if (cmp(A, B) === 0 && cmp(S, A) <= 0 && cmp(E, A) > 0) {
+    // A zero-width anchor (an empty line) inside a removed range: its line went too.
+    return { kind: 'deleted' };
+  }
   if (cmp(S, B) >= 0) {
     return { kind: 'unchanged' };
   }

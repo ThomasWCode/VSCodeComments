@@ -114,6 +114,20 @@ describe('shiftAnchor (live edits)', () => {
     assert.deepStrictEqual(r, { kind: 'edited', range: { startLine: 3, startChar: 0, endLine: 3, endChar: 8 } });
   });
 
+  it('deletes a blank-line anchor when its line is deleted', () => {
+    const blank: AnchorRange = { startLine: 6, startChar: 0, endLine: 6, endChar: 0 };
+    assert.deepStrictEqual(shiftAnchor(blank, change(6, 0, 7, 0, '')), { kind: 'deleted' });
+    assert.deepStrictEqual(shiftAnchor(blank, change(5, 0, 8, 0, '')), { kind: 'deleted' });
+  });
+
+  it('moves a blank-line anchor with a line inserted at it', () => {
+    const blank: AnchorRange = { startLine: 6, startChar: 0, endLine: 6, endChar: 0 };
+    assert.deepStrictEqual(shiftAnchor(blank, change(6, 0, 6, 0, '\n')), {
+      kind: 'moved',
+      range: { startLine: 7, startChar: 0, endLine: 7, endChar: 0 },
+    });
+  });
+
   it('applies a sequence of changes the way VS Code reports multi-cursor edits (bottom to top)', () => {
     let range: AnchorRange = BODY;
     for (const c of [change(9, 0, 9, 0, '#'), change(4, 0, 4, 0, '#'), change(0, 0, 0, 0, 'x\n')]) {

@@ -162,6 +162,20 @@ describe('Margin Notes round trip', function () {
     assert.strictEqual(t.anchor.startLine, 6);
   });
 
+  it('reattaches on undo after a manual reattach that followed unsaved edits', async () => {
+    const t = create(3, 5);
+    await editor.edit((e) => e.replace(new vscode.Range(4, 8, 4, 12), 'content'));
+    await editor.edit((e) => e.delete(new vscode.Range(3, 0, 6, 0)));
+    assert.ok(t.orphaned);
+    editor.selection = new vscode.Selection(10, 0, 10, editor.document.lineAt(10).text.length);
+    await a.actions.reattach(t.id);
+    await editor.edit((e) => e.delete(new vscode.Range(10, 0, 11, 0)));
+    assert.ok(t.orphaned);
+    await vscode.commands.executeCommand('undo');
+    await waitFor(() => !t.orphaned, 'reattach on undo');
+    assert.strictEqual(t.anchor.startLine, 10);
+  });
+
   it('reattaches an orphan to the selection', async () => {
     const t = create(3, 3);
     await editor.edit((e) => e.delete(new vscode.Range(3, 0, 4, 0)));

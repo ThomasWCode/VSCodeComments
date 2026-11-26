@@ -150,6 +150,7 @@ export function activate(context: vscode.ExtensionContext): MarginNotesApi {
       const sel = editor.selection;
       const range = sel.isEmpty ? editor.document.lineAt(sel.active.line).range : sel;
       found.thread.anchor = tracker.anchorFor(editor.document, range);
+      tracker.forgetLiveText(found.thread.id);
       found.thread.orphaned = false;
       model.changed([found.key], 'user');
     },

@@ -195,6 +195,11 @@ export class DocumentTracker implements vscode.Disposable {
     this.model.changed([key], 'reanchor', true);
   }
 
+  /** Drops a thread's live text, when its anchor is replaced (a manual reattach). */
+  forgetLiveText(threadId: string): void {
+    this.liveText.delete(threadId);
+  }
+
   /** A thread's anchor with its live text, when it was edited since the last save. */
   private current(thread: NoteThread): Anchor {
     const live = this.liveText.get(thread.id);

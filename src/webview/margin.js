@@ -175,8 +175,8 @@
       if (!seen.has(id)) {
         resizer.unobserve(b.el);
         b.el.remove();
+        // Its draft stays: the thread may only be in another file the panel stopped showing.
         boxes.delete(id);
-        replyDrafts.delete(id);
       }
     }
     layout();
