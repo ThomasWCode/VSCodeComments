@@ -238,6 +238,23 @@ describe('reanchor (changes outside VS Code)', () => {
     assert.strictEqual(r.kind !== 'orphaned' && r.anchor.startLine, 8);
   });
 
+  it('matches a blank-line anchor exactly when its lines and both context sides are back', () => {
+    const blank = makeAnchor(FILE, { startLine: 6, startChar: 0, endLine: 6, endChar: 0 }, 2);
+    const r = reanchor(blank, ['# new', ...FILE], 2);
+    assert.strictEqual(r.kind, 'moved');
+    assert.strictEqual(r.kind === 'moved' && r.anchor.startLine, 7);
+    assert.strictEqual(reanchor(blank, FILE, 2).kind, 'exact');
+  });
+
+  it('does not match a blank-line anchor exactly at a blank line with other surroundings', () => {
+    const blank = makeAnchor(FILE, { startLine: 6, startChar: 0, endLine: 6, endChar: 0 }, 2);
+    const lines = [...FILE];
+    lines[5] = '    return None';
+    const r = reanchor(blank, lines, 2);
+    assert.notStrictEqual(r.kind, 'exact');
+    assert.notStrictEqual(r.kind, 'moved');
+  });
+
   describe('fuzzy threshold boundaries', () => {
     // One-line anchors with no context: the error is 1 - similarity (no distance at the old line).
     const word = 'abcdefghij';

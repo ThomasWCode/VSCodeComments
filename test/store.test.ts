@@ -330,6 +330,19 @@ describe('git exclude', function () {
     assert.strictEqual(excludePattern(repo, sub, '.codecomments'), '/packages/app/.codecomments/');
   });
 
+  it('keeps every line when workspace folders of one repository update it at once', async () => {
+    const repo = gitRepo();
+    const names = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+    for (const n of names) {
+      fs.mkdirSync(path.join(repo, n));
+    }
+    await Promise.all(names.map((n) => setGitExclude(path.join(repo, n), '.codecomments', true)));
+    const exclude = fs.readFileSync(path.join(repo, '.git', 'info', 'exclude'), 'utf8');
+    for (const n of names) {
+      assert.ok(exclude.includes(`/${n}/.codecomments/`), `${n} kept`);
+    }
+  });
+
   it('does nothing outside a git repository', async () => {
     const dir = tempDir();
     assert.strictEqual(await setGitExclude(dir, '.codecomments', true), 'no-git');

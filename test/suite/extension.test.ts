@@ -139,6 +139,16 @@ describe('Margin Notes round trip', function () {
     assert.deepStrictEqual([t.anchor.startLine, t.anchor.endLine], [3, 5]);
   });
 
+  it('reattaches a blank-line comment on undo', async () => {
+    const range = new vscode.Range(6, 0, 6, 0);
+    const t = a.actions.createThread(key(), editor.document, range, 'Gap', 'note');
+    await editor.edit((e) => e.delete(new vscode.Range(5, 0, 8, 0)));
+    assert.strictEqual(t.orphaned, true);
+    await vscode.commands.executeCommand('undo');
+    await waitFor(() => !t.orphaned, 'reattach on undo');
+    assert.strictEqual(t.anchor.startLine, 6);
+  });
+
   it('reattaches an orphan to the selection', async () => {
     const t = create(3, 3);
     await editor.edit((e) => e.delete(new vscode.Range(3, 0, 4, 0)));

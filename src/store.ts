@@ -363,6 +363,26 @@ export async function setGitExclude(
   }
   const file = path.join(info.commonDir, 'info', 'exclude');
   const pattern = excludePattern(info.top, root, storageFolder);
+  // Workspace folders in the same repository share this file: run each
+  // read-modify-write after the previous one, or the last write drops the
+  // other folders' lines.
+  const lockKey = process.platform === 'win32' ? path.resolve(file).toLowerCase() : path.resolve(file);
+  const run = (excludeLocks.get(lockKey) ?? Promise.resolve())
+    .catch(() => undefined)
+    .then(() => updateExclude(file, pattern, exclude));
+  excludeLocks.set(lockKey, run);
+  try {
+    return await run;
+  } finally {
+    if (excludeLocks.get(lockKey) === run) {
+      excludeLocks.delete(lockKey);
+    }
+  }
+}
+
+const excludeLocks = new Map<string, Promise<unknown>>();
+
+async function updateExclude(file: string, pattern: string, exclude: boolean): Promise<'added' | 'removed' | 'unchanged'> {
   let content = '';
   try {
     content = await fsp.readFile(file, 'utf8');

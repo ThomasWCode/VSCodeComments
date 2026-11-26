@@ -257,10 +257,25 @@ export function similarity(a: string, b: string): number {
  *    context; accepted when the error is at most FUZZY_THRESHOLD.
  * 4. Otherwise orphaned.
  *
- * Whitespace-only anchors skip the exact search, which would match anywhere.
+ * Whitespace-only anchors, which would match any blank line, are matched
+ * exactly only where both context sides match too; otherwise fuzzily.
  */
 export function reanchor(anchor: Anchor, lines: string[], contextLines: number): ReanchorResult {
-  if (anchor.text.trim() !== '') {
+  if (anchor.text.trim() === '') {
+    const blank = findBlankWithContext(anchor, lines);
+    if (blank !== undefined) {
+      const textLines = splitLines(anchor.text);
+      const endLine = blank + textLines.length - 1;
+      return {
+        kind: blank === anchor.startLine ? 'exact' : 'moved',
+        anchor: makeAnchor(
+          lines,
+          { startLine: blank, startChar: anchor.startChar, endLine, endChar: anchor.endChar },
+          contextLines,
+        ),
+      };
+    }
+  } else {
     const exact = findExact(anchor, lines);
     if (exact) {
       const kind = exact.line === anchor.startLine && exact.char === anchor.startChar ? 'exact' : 'moved';
@@ -309,6 +324,32 @@ function findExact(anchor: Anchor, lines: string[]): Pos | undefined {
     }
   }
   return best?.pos;
+}
+
+/**
+ * An exact match for a whitespace-only anchor: the same whole lines, with
+ * both stored context sides matching exactly (and some real code among
+ * them), nearest the old line. Blank lines alone would match anywhere.
+ */
+function findBlankWithContext(anchor: Anchor, lines: string[]): number | undefined {
+  if ((anchor.before + anchor.after).trim() === '') {
+    return undefined;
+  }
+  const textLines = splitLines(anchor.text);
+  const n = textLines.length;
+  let best: number | undefined;
+  for (let c = 0; c + n <= lines.length; c++) {
+    if (!textLines.every((t, i) => lines[c + i].trimEnd() === t.trimEnd())) {
+      continue;
+    }
+    if (contextScore(anchor, lines, c, c + n - 1) < 2) {
+      continue;
+    }
+    if (best === undefined || Math.abs(c - anchor.startLine) < Math.abs(best - anchor.startLine)) {
+      best = c;
+    }
+  }
+  return best;
 }
 
 function findFuzzy(anchor: Anchor, lines: string[]): { line: number; count: number; error: number } | undefined {
