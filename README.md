@@ -9,17 +9,25 @@ Comments are stored in sidecar JSON files next to your code, stay attached to th
 
 ## Install
 
-Margin Notes is not on the Marketplace. Build it from source (Node.js 20 or later):
+Margin Notes is not on the Marketplace. Download the `.vsix` from the latest [release](https://github.com/ThomasWCode/VSCodeComments/releases/latest), then install it:
+
+```bash
+code --install-extension margin-notes-0.1.1.vsix
+```
+
+You can also install it from inside VS Code: in the Extensions view, open the **…** menu and choose **Install from VSIX…**.
+
+To build it from source instead (Node.js 20 or later):
 
 ```bash
 npm install
 npx vsce package
-code --install-extension margin-notes-0.1.0.vsix
+code --install-extension margin-notes-0.1.1.vsix
 ```
 
 ## Using it
 
-- **Add a comment:** click the **+** in the gutter beside a line (drag over several lines for a range), or select code, right-click and choose **Add Comment**. Pick a category; Escape keeps the default, **Note**.
+- **Add a comment:** click the **+** in the gutter beside a line (drag over several lines for a range). Or select code and press **Ctrl+Alt+M** (**Cmd+Alt+M** on a Mac, as in Word), or right-click and choose **Add Comment**. Pick a category; Escape keeps the default, **Note**.
 - **Reply, edit, delete, resolve:** use the buttons on the inline thread, or on its box in the margin.
 - **Margin panel:** **Margin Notes: Toggle Margin** (or the button in the editor title bar). Click a box to jump to its code: the code is selected, scrolled into view and briefly highlighted. Moving the cursor into commented code outlines its box. Boxes for comments above or below the visible lines collapse into "↑ 3 more" / "↓ 2 more" markers; click one to scroll there.
 - **Sidebar:** the Margin Notes view in the activity bar lists every thread by file. Filter it by category, open/resolved and attached/orphaned. Its badge counts open threads.
@@ -29,7 +37,7 @@ code --install-extension margin-notes-0.1.0.vsix
 
 | Command | What it does |
 |---|---|
-| Margin Notes: Add Comment | Comment on the selection (or the cursor's line) |
+| Margin Notes: Add Comment (Ctrl+Alt+M) | Comment on the selection (or the cursor's line) |
 | Margin Notes: Toggle Margin | Open or close the margin panel |
 | Margin Notes: Show All Comments | Open the sidebar overview |
 | Margin Notes: Export Comments | Export to Markdown or HTML |

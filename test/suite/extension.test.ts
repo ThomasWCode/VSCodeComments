@@ -33,6 +33,16 @@ describe('Margin Notes round trip', function () {
     return a.actions.createThread(key(), editor.document, range, body, 'question');
   }
 
+  it('binds Ctrl+Alt+M to Add Comment in the editor', () => {
+    const ext = vscode.extensions.getExtension('thomaswcode.margin-notes')!;
+    const bindings = ext.packageJSON.contributes.keybindings as { command: string; key: string; mac: string; when: string }[];
+    const binding = bindings.find((b) => b.command === 'marginNotes.addComment');
+    assert.ok(binding);
+    assert.strictEqual(binding.key, 'ctrl+alt+m');
+    assert.strictEqual(binding.mac, 'cmd+alt+m');
+    assert.match(binding.when, /editorTextFocus/);
+  });
+
   it('adds a thread, saves its sidecar and draws a native thread', async () => {
     const t = create(3, 5);
     await a.store.flush();
