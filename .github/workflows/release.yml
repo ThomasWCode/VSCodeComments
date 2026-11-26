@@ -1,0 +1,44 @@
+# Builds the .vsix for a pushed vX.Y.Z tag and attaches it to that tag's
+# GitHub Release (creating the release if needed), so it can be installed
+# without cloning and building.
+name: release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  vsix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Check the tag matches package.json
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match package.json version $version" >&2
+            exit 1
+          fi
+      - name: Package
+        run: npx vsce package --out "margin-notes-${GITHUB_REF_NAME#v}.vsix"
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          file="margin-notes-${GITHUB_REF_NAME#v}.vsix"
+          if ! gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            # The release is titled with the annotated tag's message (the PR title).
+            git fetch --force origin "refs/tags/$GITHUB_REF_NAME:refs/tags/$GITHUB_REF_NAME"
+            title="$(git tag -l --format='%(contents:subject)' "$GITHUB_REF_NAME")"
+            gh release create "$GITHUB_REF_NAME" --title "${title:-$GITHUB_REF_NAME}" --notes-from-tag
+          fi
+          gh release upload "$GITHUB_REF_NAME" "$file" --clobber
