@@ -73,7 +73,7 @@ export function toHtml(entries: ExportEntry[], title: string): string {
     const t = e.thread;
     const colour = config.parseHex(e.colour) ? e.colour : '#888888';
     parts.push(
-      `<article class="thread ${t.status}${t.orphaned ? ' orphaned' : ''}" style="border-left-color:${esc(colour)}">`,
+      `<article class="thread ${t.status}${t.orphaned ? ' orphaned' : ''}">`,
       `<h3>${esc(lineLabel(t))} <span class="tag" style="background:${esc(colour)}">${esc(e.categoryLabel)}</span> <span class="status">${esc(t.status)}${t.orphaned ? ' · orphaned' : ''}</span></h3>`,
       `<pre><code class="language-${esc(e.language)}">${esc(e.snippet)}</code></pre>`,
     );
@@ -100,7 +100,7 @@ export function toHtml(entries: ExportEntry[], title: string): string {
 body { font: 15px/1.5 system-ui, sans-serif; max-width: 60rem; margin: 2rem auto; padding: 0 1rem; color: #1f2328; background: #fff; }
 h1 { font-size: 1.6rem; } h2 { font-size: 1.2rem; border-bottom: 1px solid #d0d7de; padding-bottom: .3rem; margin-top: 2rem; }
 h3 { font-size: 1rem; margin: 0 0 .5rem; }
-.thread { border: 1px solid #d0d7de; border-left: 4px solid; border-radius: 6px; padding: .75rem 1rem; margin: 1rem 0; }
+.thread { border: 1px solid #d0d7de; border-radius: 6px; padding: .75rem 1rem; margin: 1rem 0; }
 .thread.resolved { opacity: .7; }
 .tag { color: #fff; border-radius: 3px; padding: 0 .4rem; font-size: .8rem; }
 .status { color: #59636e; font-weight: normal; font-size: .85rem; }
