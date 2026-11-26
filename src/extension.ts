@@ -46,7 +46,7 @@ export function activate(context: vscode.ExtensionContext): MarginNotesApi {
   const model = new CommentModel();
   const gitChecked = new Set<string>();
   const store = new SidecarStore(
-    config.storageFolder,
+    config.storageFolder(),
     (key) => model.threads(key),
     (message) => void vscode.window.showErrorMessage(message),
     (key) => {
@@ -227,13 +227,13 @@ export function activate(context: vscode.ExtensionContext): MarginNotesApi {
         tracker.reanchorDocument(doc);
       }
     }
-    const pattern = new vscode.RelativePattern(folder, `${config.storageFolder()}/**/*.json`);
+    const pattern = new vscode.RelativePattern(folder, `${store.storageFolder}/**/*.json`);
     const watcher = vscode.workspace.createFileSystemWatcher(pattern);
     // Events can arrive late, after the file has changed again (a "deleted"
     // event for a sidecar that has since been re-created): act on what is on
     // disk now, never on the event's kind.
     const reload = async (uri: vscode.Uri) => {
-      const rel = relFromSidecar(folder.uri.fsPath, config.storageFolder(), uri.fsPath);
+      const rel = relFromSidecar(folder.uri.fsPath, store.storageFolder, uri.fsPath);
       if (!rel) {
         return;
       }
@@ -250,6 +250,9 @@ export function activate(context: vscode.ExtensionContext): MarginNotesApi {
       if (store.isOwnWrite(uri.fsPath, content)) {
         return;
       }
+      // Someone else's version: remember it, so our own older content coming
+      // back later (a restore) counts as a change too.
+      store.acceptExternal(uri.fsPath, content);
       // Nothing to reload when the disk already holds what the model would write.
       const threadsNow = model.threads(key);
       if (content === undefined ? threadsNow.length === 0 : content === serialise(rel, threadsNow)) {
@@ -285,14 +288,19 @@ export function activate(context: vscode.ExtensionContext): MarginNotesApi {
     panel.render();
   }
 
-  const ready = loadAll().catch((e) => {
-    void vscode.window.showErrorMessage(`Margin Notes could not load comments: ${(e as Error).message}`);
-  });
+  const ready = loadAll()
+    .then(() => panel.checkAutoOpen())
+    .catch((e) => {
+      void vscode.window.showErrorMessage(`Margin Notes could not load comments: ${(e as Error).message}`);
+    });
 
   // ---- Workspace and editor events ----------------------------------
 
   context.subscriptions.push(
     vscode.workspace.onDidChangeWorkspaceFolders(async (e) => {
+      // Finish queued writes first: a write that ran after its folder's
+      // threads were dropped would find none and delete the sidecar.
+      await store.flush();
       for (const f of e.removed) {
         model.removeRoot(f.uri.fsPath);
       }
@@ -308,7 +316,9 @@ export function activate(context: vscode.ExtensionContext): MarginNotesApi {
     }),
     vscode.workspace.onDidChangeConfiguration(async (e) => {
       if (e.affectsConfiguration('marginNotes.storageFolder')) {
+        // Queued writes finish in the old folder before the new one is read.
         await store.flush();
+        store.setStorageFolder(config.storageFolder());
         for (const key of model.keys()) {
           model.setThreads(key, [], 'load', false);
         }

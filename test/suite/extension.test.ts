@@ -128,6 +128,17 @@ describe('Margin Notes round trip', function () {
     assert.strictEqual(t.anchor.startLine, 3);
   });
 
+  it('reattaches on undo after unsaved edits inside the range', async () => {
+    const t = create(3, 5);
+    // Edit the commented code without saving: the stored text is now out of date.
+    await editor.edit((e) => e.replace(new vscode.Range(4, 8, 4, 12), 'content'));
+    await editor.edit((e) => e.delete(new vscode.Range(3, 0, 6, 0)));
+    assert.strictEqual(t.orphaned, true);
+    await vscode.commands.executeCommand('undo');
+    await waitFor(() => !t.orphaned, 'reattach on undo');
+    assert.deepStrictEqual([t.anchor.startLine, t.anchor.endLine], [3, 5]);
+  });
+
   it('reattaches an orphan to the selection', async () => {
     const t = create(3, 3);
     await editor.edit((e) => e.delete(new vscode.Range(3, 0, 4, 0)));
@@ -181,9 +192,38 @@ describe('Margin Notes round trip', function () {
     await waitFor(() => a.model.find(t.id)?.thread.comments[0].body === 'Changed by a sync tool', 'the reload');
   });
 
+  it('reloads a restore of the sidecar it wrote itself, after an external change', async () => {
+    const t = create(3, 5);
+    await a.store.flush();
+    const original = fs.readFileSync(sidecar(), 'utf8');
+    const data = parseSidecar(original);
+    data.threads[0].comments[0].body = 'Changed by a sync tool';
+    fs.writeFileSync(sidecar(), JSON.stringify(data));
+    await waitFor(() => a.model.find(t.id)?.thread.comments[0].body === 'Changed by a sync tool', 'the change');
+    fs.writeFileSync(sidecar(), original);
+    await waitFor(() => a.model.find(t.id)?.thread.comments[0].body === 'Why read it all?', 'the restore');
+  });
+
+  it('opens the margin for the active editor when autoOpenMargin is on', async () => {
+    create(3, 3);
+    const cfg = vscode.workspace.getConfiguration('marginNotes');
+    await cfg.update('autoOpenMargin', true, vscode.ConfigurationTarget.Workspace);
+    try {
+      assert.ok(!a.panel.isOpen);
+      // As after activation, once the sidecars have loaded.
+      a.panel.checkAutoOpen();
+      assert.ok(a.panel.isOpen);
+    } finally {
+      await cfg.update('autoOpenMargin', undefined, vscode.ConfigurationTarget.Workspace);
+    }
+  });
+
   it('drops the threads of a sidecar deleted outside the extension', async () => {
     const t = create(3, 5);
     await a.store.flush();
+    // VS Code's watcher merges a create and a delete in quick succession into
+    // nothing: let our own write settle first, as it would in real use.
+    await sleep(1000);
     fs.rmSync(sidecar());
     await waitFor(() => a.model.find(t.id) === undefined, 'the threads to go');
   });

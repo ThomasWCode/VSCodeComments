@@ -48,12 +48,25 @@ export function openDocument(key: FileKey): vscode.TextDocument | undefined {
 
 export class DocumentTracker implements vscode.Disposable {
   private readonly disposables: vscode.Disposable[] = [];
+  /**
+   * The anchored text as it is now, for threads edited since the last save
+   * (anchor.text keeps the saved file's text until then). Not persisted: it
+   * lets undo and reload checks look for the code as it really was.
+   */
+  private readonly liveText = new Map<string, string>();
 
   constructor(private readonly model: CommentModel) {
     this.disposables.push(
       vscode.workspace.onDidChangeTextDocument((e) => this.onChange(e)),
       vscode.workspace.onDidOpenTextDocument((d) => this.reanchorDocument(d)),
       vscode.workspace.onDidSaveTextDocument((d) => this.onSave(d)),
+      // Closing without saving discards the edits the live text describes.
+      vscode.workspace.onDidCloseTextDocument((d) => {
+        const key = keyFor(d.uri);
+        for (const thread of key ? this.model.threads(key) : []) {
+          this.liveText.delete(thread.id);
+        }
+      }),
     );
   }
 
@@ -83,8 +96,9 @@ export class DocumentTracker implements vscode.Disposable {
       if (thread.orphaned) {
         continue;
       }
-      const before = { ...thread.anchor };
+      const before = this.current(thread);
       let suspect = false;
+      let edited = false;
       for (const change of e.contentChanges) {
         const result = shiftAnchor(thread.anchor, {
           startLine: change.range.start.line,
@@ -102,11 +116,17 @@ export class DocumentTracker implements vscode.Disposable {
         if (result.kind !== 'unchanged') {
           Object.assign(thread.anchor, result.range);
           suspect = suspect || (result.kind === 'edited' && result.partial === true);
+          edited = edited || result.kind === 'edited';
           changed = true;
         }
       }
       if (suspect) {
         suspects.push({ thread, before });
+      }
+      if (!thread.orphaned && edited) {
+        const a = thread.anchor;
+        const text = e.document.getText(new vscode.Range(a.startLine, a.startChar, a.endLine, a.endChar));
+        this.liveText.set(thread.id, splitLines(text).join('\n'));
       }
     }
     // isDirty can lag behind the first edit after a save, so it only decides
@@ -157,6 +177,7 @@ export class DocumentTracker implements vscode.Disposable {
         continue;
       }
       suspectIds.add(thread.id);
+      this.liveText.delete(thread.id);
       const result = reanchor(before, lines, contextLines);
       if (result.kind === 'orphaned') {
         thread.orphaned = true;
@@ -168,9 +189,16 @@ export class DocumentTracker implements vscode.Disposable {
     for (const thread of this.model.threads(key)) {
       if (!thread.orphaned && !suspectIds.has(thread.id)) {
         thread.anchor = refreshAnchor(thread.anchor, lines, contextLines);
+        this.liveText.delete(thread.id);
       }
     }
     this.model.changed([key], 'reanchor', true);
+  }
+
+  /** A thread's anchor with its live text, when it was edited since the last save. */
+  private current(thread: NoteThread): Anchor {
+    const live = this.liveText.get(thread.id);
+    return live === undefined ? { ...thread.anchor } : { ...thread.anchor, text: live };
   }
 
   private reattachExact(doc: vscode.TextDocument, key: FileKey): boolean {
@@ -180,10 +208,11 @@ export class DocumentTracker implements vscode.Disposable {
       if (!thread.orphaned) {
         continue;
       }
-      const result = reanchor(thread.anchor, lines, config.contextLines());
+      const result = reanchor(this.current(thread), lines, config.contextLines());
       if (result.kind === 'exact' || result.kind === 'moved') {
         thread.anchor = result.anchor;
         thread.orphaned = false;
+        this.liveText.delete(thread.id);
         changed = true;
       }
     }
@@ -208,7 +237,7 @@ export class DocumentTracker implements vscode.Disposable {
     const contextLines = config.contextLines();
     let changed = false;
     for (const thread of threads) {
-      const result = reanchor(thread.anchor, lines, contextLines);
+      const result = reanchor(this.current(thread), lines, contextLines);
       if (result.kind === 'orphaned') {
         if (!thread.orphaned) {
           thread.orphaned = true;
@@ -222,6 +251,7 @@ export class DocumentTracker implements vscode.Disposable {
       if (thread.orphaned || !sameAnchor(thread.anchor, result.anchor)) {
         thread.anchor = result.anchor;
         thread.orphaned = false;
+        this.liveText.delete(thread.id);
         changed = true;
       }
     }
@@ -244,6 +274,7 @@ export class DocumentTracker implements vscode.Disposable {
     for (const thread of threads) {
       if (!thread.orphaned) {
         thread.anchor = refreshAnchor(thread.anchor, lines, contextLines);
+        this.liveText.delete(thread.id);
       }
     }
     this.model.changed([key], 'edit', true);

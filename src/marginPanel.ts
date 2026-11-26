@@ -164,6 +164,14 @@ export class MarginPanel implements vscode.Disposable {
     return editors.find((e) => e.viewColumn === this.tracked?.viewColumn) ?? editors[0];
   }
 
+  /** Opens the panel for the active editor when autoOpenMargin asks for it (after the first load, too). */
+  checkAutoOpen(): void {
+    const editor = vscode.window.activeTextEditor;
+    if (editor && this.track(editor)) {
+      this.maybeAutoOpen(editor);
+    }
+  }
+
   private maybeAutoOpen(editor: vscode.TextEditor): void {
     if (this.panel || !config.autoOpenMargin()) {
       return;

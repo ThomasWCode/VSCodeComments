@@ -154,7 +154,7 @@ describe('SidecarStore', () => {
     const key = { root, rel: 'src/a.ts' };
     let threads = [thread('1')];
     let writes = 0;
-    const store = new SidecarStore(() => '.codecomments', () => threads, assert.fail, () => writes++, 30);
+    const store = new SidecarStore('.codecomments', () => threads, assert.fail, () => writes++, 30);
     store.schedule(key);
     threads = [thread('1'), thread('2')];
     store.schedule(key);
@@ -169,7 +169,7 @@ describe('SidecarStore', () => {
     const root = tempDir();
     const key = { root, rel: 'src/deep/a.ts' };
     let threads = [thread('1')];
-    const store = new SidecarStore(() => '.codecomments', () => threads, assert.fail, undefined, 1);
+    const store = new SidecarStore('.codecomments', () => threads, assert.fail, undefined, 1);
     store.schedule(key);
     await store.flush();
     const file = sidecarPath(root, '.codecomments', key.rel);
@@ -184,7 +184,7 @@ describe('SidecarStore', () => {
 
   it('only creates sidecars for files with comments', async () => {
     const root = tempDir();
-    const store = new SidecarStore(() => '.codecomments', () => [], assert.fail, undefined, 1);
+    const store = new SidecarStore('.codecomments', () => [], assert.fail, undefined, 1);
     store.schedule({ root, rel: 'a.ts' });
     await store.flush();
     assert.ok(!fs.existsSync(path.join(root, '.codecomments', 'a.ts.json')));
@@ -193,7 +193,7 @@ describe('SidecarStore', () => {
   it('tells its own writes from changes made by others', async () => {
     const root = tempDir();
     const key = { root, rel: 'a.ts' };
-    const store = new SidecarStore(() => '.codecomments', () => [thread('1')], assert.fail, undefined, 1);
+    const store = new SidecarStore('.codecomments', () => [thread('1')], assert.fail, undefined, 1);
     store.schedule(key);
     await store.flush();
     const file = sidecarPath(root, '.codecomments', 'a.ts');
@@ -217,7 +217,7 @@ describe('SidecarStore', () => {
       return saved.rename(from, to);
     };
     try {
-      const store = new SidecarStore(() => '.codecomments', () => threads, assert.fail, undefined, 1);
+      const store = new SidecarStore('.codecomments', () => threads, assert.fail, undefined, 1);
       store.schedule(key);
       await new Promise((r) => setTimeout(r, 20));
       threads = [thread('new')];
@@ -232,6 +232,32 @@ describe('SidecarStore', () => {
     }
   });
 
+  it('writes queued changes to the folder they were queued for, after the folder changes', async () => {
+    const root = tempDir();
+    const key = { root, rel: 'a.ts' };
+    const store = new SidecarStore('.old', () => [thread('1')], assert.fail, undefined, 50);
+    store.schedule(key);
+    store.setStorageFolder('.new');
+    await store.flush();
+    assert.ok(fs.existsSync(sidecarPath(root, '.old', 'a.ts')));
+    assert.ok(!fs.existsSync(sidecarPath(root, '.new', 'a.ts')), 'nothing lands in the new folder');
+    store.schedule(key);
+    await store.flush();
+    assert.ok(fs.existsSync(sidecarPath(root, '.new', 'a.ts')), 'later writes go to the new folder');
+  });
+
+  it('treats its own older content coming back after an external change as a change', async () => {
+    const root = tempDir();
+    const key = { root, rel: 'a.ts' };
+    const store = new SidecarStore('.codecomments', () => [thread('1')], assert.fail, undefined, 1);
+    store.schedule(key);
+    await store.flush();
+    const file = sidecarPath(root, '.codecomments', 'a.ts');
+    const ours = fs.readFileSync(file, 'utf8');
+    store.acceptExternal(file, '{"external": true}');
+    assert.ok(!store.isOwnWrite(file, ours), 'a restore of our earlier content is not an echo');
+  });
+
   it('ignores watcher events while its own write is in flight', async () => {
     const root = tempDir();
     const key = { root, rel: 'a.ts' };
@@ -241,7 +267,7 @@ describe('SidecarStore', () => {
     io.rename = (from: string, to: string) =>
       new Promise<void>((resolve) => (release = resolve)).then(() => saved.rename(from, to));
     try {
-      const store = new SidecarStore(() => '.codecomments', () => [thread('1')], assert.fail, undefined, 1);
+      const store = new SidecarStore('.codecomments', () => [thread('1')], assert.fail, undefined, 1);
       store.schedule(key);
       const flushed = store.flush();
       await new Promise((r) => setTimeout(r, 30));
@@ -262,7 +288,7 @@ describe('SidecarStore', () => {
     fs.writeFileSync(path.join(root, '.codecomments', 'b.ts.json'), serialise('b.ts', [thread('2')]));
     fs.writeFileSync(path.join(root, '.codecomments', 'broken.ts.json'), '{');
     const errors: string[] = [];
-    const store = new SidecarStore(() => '.codecomments', () => [], (m) => errors.push(m));
+    const store = new SidecarStore('.codecomments', () => [], (m) => errors.push(m));
     const loaded = await store.loadAll(root);
     assert.deepStrictEqual(loaded.map((l) => l.key.rel).sort(), ['b.ts', 'src/a.ts']);
     assert.strictEqual(errors.length, 1);

@@ -130,7 +130,8 @@ async function pruneEmptyDirs(dir: string, stop: string): Promise<void> {
 }
 
 export class SidecarStore {
-  private readonly timers = new Map<string, { key: FileKey; timer: NodeJS.Timeout }>();
+  /** Queued writes, each with the storage folder current when it was queued. */
+  private readonly timers = new Map<string, { key: FileKey; folder: string; timer: NodeJS.Timeout }>();
   private readonly pending = new Set<Promise<void>>();
   /** What this store last wrote to each sidecar ('' for a delete), to tell its own writes from others'. */
   private readonly lastWritten = new Map<string, string>();
@@ -140,12 +141,25 @@ export class SidecarStore {
   private readonly chains = new Map<string, Promise<void>>();
 
   constructor(
-    private readonly storageFolder: () => string,
+    private folder: string,
     private readonly getThreads: (key: FileKey) => NoteThread[],
     private readonly onError: (message: string) => void,
     private readonly onWrite: (key: FileKey) => void = () => undefined,
     private readonly delayMs = WRITE_DELAY_MS,
   ) {}
+
+  get storageFolder(): string {
+    return this.folder;
+  }
+
+  /**
+   * Switches where new writes go and where sidecars are read from. Writes
+   * already queued still go to the folder they were queued for: flush first
+   * to finish them before reading the new folder.
+   */
+  setStorageFolder(folder: string): void {
+    this.folder = folder;
+  }
 
   /** Queues a write of a file's threads; several changes within the delay make one write. */
   schedule(key: FileKey): void {
@@ -154,11 +168,12 @@ export class SidecarStore {
     if (existing) {
       clearTimeout(existing.timer);
     }
+    const folder = this.folder;
     const timer = setTimeout(() => {
       this.timers.delete(k);
-      this.enqueue(key);
+      this.enqueue(key, folder);
     }, this.delayMs);
-    this.timers.set(k, { key, timer });
+    this.timers.set(k, { key, folder, timer });
   }
 
   /**
@@ -167,10 +182,10 @@ export class SidecarStore {
    * a newer one and leave stale content on disk. Each write reads the threads
    * when it runs, so the last one written is always the newest.
    */
-  private enqueue(key: FileKey): void {
-    const file = sidecarPath(key.root, this.storageFolder(), key.rel);
+  private enqueue(key: FileKey, folder: string): void {
+    const file = sidecarPath(key.root, folder, key.rel);
     this.inFlight.set(file, (this.inFlight.get(file) ?? 0) + 1);
-    const next = (this.chains.get(file) ?? Promise.resolve()).then(() => this.write(key, file));
+    const next = (this.chains.get(file) ?? Promise.resolve()).then(() => this.write(key, folder, file));
     this.chains.set(file, next);
     this.track(
       next.finally(() => {
@@ -189,9 +204,9 @@ export class SidecarStore {
 
   /** Writes every queued change now. */
   async flush(): Promise<void> {
-    for (const { key, timer } of this.timers.values()) {
+    for (const { key, folder, timer } of this.timers.values()) {
       clearTimeout(timer);
-      this.enqueue(key);
+      this.enqueue(key, folder);
     }
     this.timers.clear();
     while (this.pending.size > 0) {
@@ -204,7 +219,7 @@ export class SidecarStore {
     p.finally(() => this.pending.delete(p));
   }
 
-  private async write(key: FileKey, file: string): Promise<void> {
+  private async write(key: FileKey, folder: string, file: string): Promise<void> {
     const threads = this.getThreads(key);
     try {
       if (threads.length === 0) {
@@ -214,7 +229,7 @@ export class SidecarStore {
             throw e;
           }
         });
-        await pruneEmptyDirs(path.dirname(file), path.join(key.root, this.storageFolder()));
+        await pruneEmptyDirs(path.dirname(file), path.join(key.root, folder));
       } else {
         const content = serialise(key.rel, threads);
         this.lastWritten.set(file, content);
@@ -239,6 +254,15 @@ export class SidecarStore {
     return last !== undefined && last === (content ?? '');
   }
 
+  /**
+   * Records a sidecar's content (undefined when deleted) accepted from
+   * someone else, so that an older version of this store's own write coming
+   * back later (a restore) is seen as a change, not an echo.
+   */
+  acceptExternal(file: string, content: string | undefined): void {
+    this.lastWritten.set(file, content ?? '');
+  }
+
   /** Reads one sidecar; undefined when it is missing. Throws on a broken file. */
   async read(file: string): Promise<SidecarFile | undefined> {
     let json: string;
@@ -255,7 +279,7 @@ export class SidecarStore {
 
   /** Every sidecar under a workspace folder's storage folder. */
   async loadAll(root: string): Promise<{ key: FileKey; data: SidecarFile }[]> {
-    const base = path.join(root, this.storageFolder());
+    const base = path.join(root, this.folder);
     const result: { key: FileKey; data: SidecarFile }[] = [];
     const walk = async (dir: string): Promise<void> => {
       let entries: import('fs').Dirent[];
@@ -269,7 +293,7 @@ export class SidecarStore {
         if (entry.isDirectory()) {
           await walk(full);
         } else if (entry.name.endsWith('.json')) {
-          const rel = relFromSidecar(root, this.storageFolder(), full);
+          const rel = relFromSidecar(root, this.folder, full);
           if (!rel) {
             continue;
           }
