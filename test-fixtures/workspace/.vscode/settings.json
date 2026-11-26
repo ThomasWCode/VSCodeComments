@@ -1,0 +1,11 @@
+{
+  // The fixture sits inside the extension's own repository: leave its
+  // .git/info/exclude alone.
+  "marginNotes.commitComments": true,
+  "editor.fontSize": 14,
+  "editor.lineHeight": 20,
+  "breadcrumbs.enabled": true,
+  "workbench.startupEditor": "none",
+  "editor.codeLens": false,
+  "editor.stickyScroll.enabled": false
+}
