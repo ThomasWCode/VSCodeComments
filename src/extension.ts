@@ -10,7 +10,7 @@ import { Decorations } from './decorations';
 import { DocumentTracker, keyFor, openDocument } from './documents';
 import { runExport } from './export';
 import { MarginPanel, PanelActions } from './marginPanel';
-import { CommentModel, FileKey, NoteThread, ThreadStatus } from './model';
+import { CommentModel, FileKey, mergeLoaded, NoteThread, ThreadStatus } from './model';
 import { revealThread, RevealDeps } from './reveal';
 import { isTrackedByGit, parseSidecar, relFromSidecar, serialise, setGitExclude, SidecarStore, untrack } from './store';
 import { OverviewTree } from './treeView';
@@ -221,7 +221,14 @@ export function activate(context: vscode.ExtensionContext): MarginNotesApi {
       return;
     }
     for (const { key, data } of await store.loadAll(folder.uri.fsPath)) {
-      model.setThreads(key, data.threads, 'load', false);
+      // Comments can be added while loading runs (it isn't awaited before the
+      // commands work): merge rather than replace, and save the result.
+      const existing = model.threads(key);
+      if (existing.length === 0) {
+        model.setThreads(key, data.threads, 'load', false);
+      } else {
+        model.setThreads(key, mergeLoaded(existing, data.threads), 'load', true);
+      }
       const doc = openDocument(key);
       if (doc) {
         tracker.reanchorDocument(doc);

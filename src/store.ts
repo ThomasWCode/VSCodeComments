@@ -343,8 +343,18 @@ export async function gitInfo(root: string): Promise<{ top: string; commonDir: s
 
 /** The .git/info/exclude pattern for a storage folder, relative to the repository's top level. */
 export function excludePattern(top: string, root: string, storageFolder: string): string {
-  const rel = path.relative(top, path.join(root, storageFolder)).split(path.sep).join('/');
-  return '/' + rel.replace(/\/+$/, '') + '/';
+  const rel = path
+    .relative(top, path.join(root, storageFolder))
+    .split(path.sep)
+    .filter((part) => part !== '')
+    .map(escapeGlob)
+    .join('/');
+  return '/' + rel + '/';
+}
+
+/** Escapes a literal path segment for a gitignore pattern: wildcards, brackets, backslashes and trailing spaces. */
+function escapeGlob(segment: string): string {
+  return segment.replace(/[\\*?[\]]/g, (ch) => '\\' + ch).replace(/ +$/, (spaces) => spaces.replace(/ /g, '\\ '));
 }
 
 /**

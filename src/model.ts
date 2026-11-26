@@ -69,6 +69,17 @@ export interface ModelChange {
   persist: boolean;
 }
 
+/**
+ * Combines a file's threads read from disk with threads already in the model
+ * (added while loading was still running): the model's versions win, and
+ * threads only on disk are added. The model's thread objects are kept, as
+ * the display layers hold on to them.
+ */
+export function mergeLoaded(existing: NoteThread[], loaded: NoteThread[]): NoteThread[] {
+  const ids = new Set(existing.map((t) => t.id));
+  return [...loaded.filter((t) => !ids.has(t.id)), ...existing];
+}
+
 export class CommentModel {
   private readonly files = new Map<string, { key: FileKey; threads: NoteThread[] }>();
   private readonly listeners: ((change: ModelChange) => void)[] = [];

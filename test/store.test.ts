@@ -343,6 +343,17 @@ describe('git exclude', function () {
     }
   });
 
+  it('escapes pattern characters in folder names so the folder really is excluded', async () => {
+    const repo = gitRepo();
+    const sub = path.join(repo, 'pkg[1]');
+    fs.mkdirSync(path.join(sub, '.codecomments'), { recursive: true });
+    fs.writeFileSync(path.join(sub, '.codecomments', 'a.json'), '{}');
+    await setGitExclude(sub, '.codecomments', true);
+    assert.strictEqual(excludePattern(repo, sub, '.codecomments'), '/pkg\\[1\\]/.codecomments/');
+    assert.strictEqual(git(repo, 'status', '--porcelain', '--untracked-files=all'), '', 'git ignores the folder');
+    assert.strictEqual(await setGitExclude(sub, '.codecomments', false), 'removed');
+  });
+
   it('does nothing outside a git repository', async () => {
     const dir = tempDir();
     assert.strictEqual(await setGitExclude(dir, '.codecomments', true), 'no-git');

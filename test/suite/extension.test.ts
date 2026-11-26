@@ -97,6 +97,18 @@ describe('Margin Notes round trip', function () {
     assert.strictEqual(a.native.native(only.id), draft, 'the widget the user typed into is kept');
   });
 
+  it('keeps an Add Comment draft on its code when the file is edited before submitting', async () => {
+    const draft = a.native.openDraft(editor.document.uri, new vscode.Range(4, 8, 4, 23));
+    await editor.edit((e) => e.insert(new vscode.Position(0, 0), '# one\n# two\n'));
+    const done = vscode.commands.executeCommand('marginNotes.createThread', { thread: draft, text: 'On f.read' });
+    await sleep(500);
+    await vscode.commands.executeCommand('workbench.action.acceptSelectedQuickOpenItem');
+    await done;
+    const [only] = a.model.threads(key());
+    assert.deepStrictEqual([only.anchor.startLine, only.anchor.startChar], [6, 8]);
+    assert.strictEqual(only.anchor.text, 'data = f.read()');
+  });
+
   it('moves anchors with live edits, and writes the new position on save', async () => {
     const t = create(3, 5);
     await editor.edit((e) => e.insert(new vscode.Position(2, 0), '# one\n# two\n'));

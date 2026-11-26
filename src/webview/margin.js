@@ -151,6 +151,7 @@
       const focusSelector = focused instanceof HTMLTextAreaElement ? `textarea.${focused.className}` : null;
       const el = buildBox(t);
       if (existing) {
+        resizer.unobserve(existing.el);
         existing.el.replaceWith(el);
       }
       boxes.set(t.id, { el, sig });
@@ -164,6 +165,7 @@
     }
     for (const [id, b] of boxes) {
       if (!seen.has(id)) {
+        resizer.unobserve(b.el);
         b.el.remove();
         boxes.delete(id);
         replyDrafts.delete(id);

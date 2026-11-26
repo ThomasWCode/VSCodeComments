@@ -1,5 +1,6 @@
 // Display layer A: native inline comment threads, built from the model.
 import * as vscode from 'vscode';
+import { AnchorRange, shiftAnchor } from './anchor';
 import * as config from './config';
 import { keyFor, uriFor } from './documents';
 import { CommentModel, FileKey, keyString, NoteComment, NoteThread } from './model';
@@ -48,7 +49,12 @@ export class NativeComments implements vscode.Disposable {
   /** What each native thread's comments were last built from. */
   private readonly signatures = new Map<string, string>();
 
+  private readonly listener: vscode.Disposable;
+
   constructor(private readonly model: CommentModel) {
+    // A draft waits for the user to type: keep its selection on the same code
+    // if the document is edited meanwhile.
+    this.listener = vscode.workspace.onDidChangeTextDocument((e) => this.shiftDrafts(e));
     this.controller = vscode.comments.createCommentController('marginNotes', 'Margin Notes');
     this.controller.options = { prompt: 'Add a comment', placeHolder: 'Write a comment (Markdown)' };
     this.controller.commentingRangeProvider = {
@@ -61,7 +67,38 @@ export class NativeComments implements vscode.Disposable {
     };
   }
 
+  private shiftDrafts(e: vscode.TextDocumentChangeEvent): void {
+    for (const [draft, range] of this.drafts) {
+      if (draft.uri.toString() !== e.document.uri.toString()) {
+        continue;
+      }
+      let r: AnchorRange = {
+        startLine: range.start.line,
+        startChar: range.start.character,
+        endLine: range.end.line,
+        endChar: range.end.character,
+      };
+      for (const c of e.contentChanges) {
+        const result = shiftAnchor(r, {
+          startLine: c.range.start.line,
+          startChar: c.range.start.character,
+          endLine: c.range.end.line,
+          endChar: c.range.end.character,
+          text: c.text,
+        });
+        if (result.kind === 'deleted') {
+          // The selected code is gone: keep the draft where it was cut.
+          r = { startLine: c.range.start.line, startChar: c.range.start.character, endLine: c.range.start.line, endChar: c.range.start.character };
+        } else if (result.kind !== 'unchanged') {
+          r = result.range;
+        }
+      }
+      this.drafts.set(draft, new vscode.Range(r.startLine, r.startChar, r.endLine, r.endChar));
+    }
+  }
+
   dispose(): void {
+    this.listener.dispose();
     for (const t of this.threads.values()) {
       t.dispose();
     }
@@ -167,7 +204,7 @@ export class NativeComments implements vscode.Disposable {
   }
 
   /** Opens an empty thread on a selection for the user to type the first comment into. */
-  openDraft(uri: vscode.Uri, selection: vscode.Range): void {
+  openDraft(uri: vscode.Uri, selection: vscode.Range): vscode.CommentThread {
     for (const d of this.drafts.keys()) {
       d.dispose();
     }
@@ -176,6 +213,7 @@ export class NativeComments implements vscode.Disposable {
     draft.canReply = true;
     draft.collapsibleState = vscode.CommentThreadCollapsibleState.Expanded;
     this.drafts.set(draft, selection);
+    return draft;
   }
 
   /** The exact range a draft was opened for; undefined for threads started from the gutter. */
