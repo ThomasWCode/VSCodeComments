@@ -13,4 +13,5 @@ node_modules/**
 esbuild.js
 tsconfig.json
 PROGRESS.md
+.impeccable/**
 .gitignore
