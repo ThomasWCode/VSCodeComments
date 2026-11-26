@@ -1,0 +1,46 @@
+# Type-checks, runs the unit and integration tests (inside a downloaded VS
+# Code, under a virtual display) and packages the .vsix.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: npm
+      - name: Cache the VS Code test download
+        uses: actions/cache@v6
+        with:
+          path: .vscode-test
+          key: vscode-test-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: vscode-test-${{ runner.os }}-
+      - run: npm ci
+      - name: Type-check
+        run: npm run check-types
+      - name: Unit tests
+        run: npm run test:unit
+      - name: Integration tests
+        run: xvfb-run -a npm test
+      - name: Package
+        run: npx vsce package --out margin-notes.vsix
+      - uses: actions/upload-artifact@v7
+        with:
+          name: margin-notes-vsix
+          path: margin-notes.vsix
+          retention-days: 14

@@ -1,0 +1,262 @@
+:root {
+  --line-height: 19px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size);
+  color: var(--vscode-foreground);
+  background: var(--vscode-editor-background);
+}
+
+/* Sits in the height of the editor's breadcrumbs, so boxes below line up with code lines. */
+#header {
+  position: absolute;
+  top: 0;
+  left: 18px;
+  right: 8px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 11px;
+  line-height: 22px;
+  opacity: 0.7;
+}
+
+#lane {
+  position: relative;
+  min-height: 100vh;
+}
+
+#connectors {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 16px;
+  overflow: visible;
+  pointer-events: none;
+}
+
+#connectors path {
+  fill: none;
+  stroke-width: 1.5;
+  opacity: 0.8;
+}
+
+.box {
+  position: absolute;
+  left: 16px;
+  right: 8px;
+  padding: 4px 8px 6px 12px;
+  border: 1px solid var(--vscode-editorWidget-border, rgba(128, 128, 128, 0.35));
+  border-radius: 4px;
+  background: var(--vscode-editorWidget-background);
+  cursor: pointer;
+  overflow: hidden;
+}
+
+#orphans .box {
+  position: relative;
+  left: auto;
+  right: auto;
+  margin: 6px 8px 6px 16px;
+}
+
+.box:focus {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: -1px;
+}
+
+.box.active {
+  outline: 2px solid var(--cat);
+  outline-offset: -1px;
+}
+
+.box.resolved {
+  opacity: 0.6;
+}
+
+.box .strip {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--cat);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 22px;
+}
+
+.head .line {
+  font-family: var(--vscode-editor-font-family);
+  font-size: 11px;
+  opacity: 0.75;
+}
+
+.head .status {
+  font-size: 11px;
+  opacity: 0.75;
+}
+
+.tools {
+  margin-left: auto;
+  display: flex;
+  gap: 2px;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  padding: 0 4px;
+  cursor: pointer;
+  line-height: 18px;
+}
+
+button:hover {
+  background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.2));
+}
+
+button.primary {
+  color: var(--vscode-button-foreground);
+  background: var(--vscode-button-background);
+  padding: 0 8px;
+}
+
+button.primary:hover {
+  background: var(--vscode-button-hoverBackground);
+}
+
+select.cat {
+  font: inherit;
+  font-size: 11px;
+  color: var(--vscode-dropdown-foreground);
+  background: var(--vscode-dropdown-background);
+  border: 1px solid var(--vscode-dropdown-border, transparent);
+  border-radius: 3px;
+  max-width: 9em;
+}
+
+.comment {
+  border-top: 1px solid var(--vscode-editorWidget-border, rgba(128, 128, 128, 0.2));
+  padding-top: 3px;
+  margin-top: 3px;
+}
+
+.comment .meta {
+  display: flex;
+  align-items: center;
+  font-size: 11px;
+  opacity: 0.75;
+}
+
+.comment .meta .tools {
+  visibility: hidden;
+}
+
+.comment:hover .meta .tools,
+.comment:focus-within .meta .tools {
+  visibility: visible;
+}
+
+.comment .body {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.warning {
+  color: var(--vscode-editorWarning-foreground);
+  font-size: 12px;
+}
+
+.snippet {
+  margin: 4px 0;
+  padding: 4px;
+  max-height: 6em;
+  overflow: auto;
+  font-family: var(--vscode-editor-font-family);
+  font-size: 11px;
+  background: var(--vscode-textCodeBlock-background);
+}
+
+textarea {
+  width: 100%;
+  resize: vertical;
+  font: inherit;
+  color: var(--vscode-input-foreground);
+  background: var(--vscode-input-background);
+  border: 1px solid var(--vscode-input-border, transparent);
+  border-radius: 2px;
+  padding: 2px 4px;
+}
+
+textarea:focus {
+  outline: 1px solid var(--vscode-focusBorder);
+}
+
+.replybar {
+  display: flex;
+  gap: 4px;
+  margin-top: 4px;
+  align-items: flex-start;
+}
+
+.box:not(.active):not(:focus-within) .replybar button {
+  display: none;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.marker {
+  position: fixed;
+  right: 12px;
+  z-index: 2;
+  color: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
+  background: var(--vscode-button-secondaryBackground, var(--vscode-editorWidget-background));
+  border: 1px solid var(--vscode-editorWidget-border, transparent);
+  font-size: 11px;
+  padding: 1px 8px;
+}
+
+#above {
+  top: 24px;
+}
+
+#below {
+  bottom: 8px;
+}
+
+#orphans h2 {
+  font-size: 12px;
+  font-weight: 600;
+  margin: 12px 8px 4px 16px;
+  color: var(--vscode-editorWarning-foreground);
+}
+
+#empty {
+  position: absolute;
+  top: 40%;
+  left: 16px;
+  right: 16px;
+  text-align: center;
+  opacity: 0.6;
+}

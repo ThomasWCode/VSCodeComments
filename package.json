@@ -1,0 +1,396 @@
+{
+  "name": "margin-notes",
+  "displayName": "Margin Notes",
+  "description": "Word-style comment boxes for code: inline comment threads plus a margin panel beside the editor.",
+  "version": "0.1.0",
+  "publisher": "thomaswcode",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ThomasWCode/VSCodeComments"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "comments",
+    "annotations",
+    "notes",
+    "review",
+    "margin"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "marginNotes.addComment",
+        "title": "Add Comment",
+        "category": "Margin Notes"
+      },
+      {
+        "command": "marginNotes.toggleMargin",
+        "title": "Toggle Margin",
+        "category": "Margin Notes",
+        "icon": "$(layout-sidebar-right)"
+      },
+      {
+        "command": "marginNotes.showAllComments",
+        "title": "Show All Comments",
+        "category": "Margin Notes"
+      },
+      {
+        "command": "marginNotes.exportComments",
+        "title": "Export Comments",
+        "category": "Margin Notes",
+        "icon": "$(export)"
+      },
+      {
+        "command": "marginNotes.reattachOrphan",
+        "title": "Reattach Orphaned Comment",
+        "category": "Margin Notes",
+        "icon": "$(link)"
+      },
+      {
+        "command": "marginNotes.changeCategory",
+        "title": "Change Category",
+        "category": "Margin Notes",
+        "icon": "$(tag)"
+      },
+      {
+        "command": "marginNotes.toggleShowResolved",
+        "title": "Toggle Show Resolved",
+        "category": "Margin Notes",
+        "icon": "$(eye)"
+      },
+      {
+        "command": "marginNotes.deleteAllResolved",
+        "title": "Delete All Resolved",
+        "category": "Margin Notes",
+        "icon": "$(clear-all)"
+      },
+      {
+        "command": "marginNotes.filterTree",
+        "title": "Filter Comments",
+        "category": "Margin Notes",
+        "icon": "$(filter)"
+      },
+      {
+        "command": "marginNotes.createThread",
+        "title": "Add Comment",
+        "category": "Margin Notes"
+      },
+      {
+        "command": "marginNotes.reply",
+        "title": "Reply",
+        "category": "Margin Notes"
+      },
+      {
+        "command": "marginNotes.editComment",
+        "title": "Edit Comment",
+        "category": "Margin Notes",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "marginNotes.saveEdit",
+        "title": "Save",
+        "category": "Margin Notes"
+      },
+      {
+        "command": "marginNotes.cancelEdit",
+        "title": "Cancel",
+        "category": "Margin Notes"
+      },
+      {
+        "command": "marginNotes.deleteComment",
+        "title": "Delete Comment",
+        "category": "Margin Notes",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "marginNotes.deleteThread",
+        "title": "Delete Thread",
+        "category": "Margin Notes",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "marginNotes.resolveThread",
+        "title": "Resolve",
+        "category": "Margin Notes",
+        "icon": "$(check)"
+      },
+      {
+        "command": "marginNotes.reopenThread",
+        "title": "Reopen",
+        "category": "Margin Notes",
+        "icon": "$(issue-reopened)"
+      },
+      {
+        "command": "marginNotes.revealThread",
+        "title": "Go to Comment",
+        "category": "Margin Notes"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        { "command": "marginNotes.createThread", "when": "false" },
+        { "command": "marginNotes.reply", "when": "false" },
+        { "command": "marginNotes.editComment", "when": "false" },
+        { "command": "marginNotes.saveEdit", "when": "false" },
+        { "command": "marginNotes.cancelEdit", "when": "false" },
+        { "command": "marginNotes.deleteComment", "when": "false" },
+        { "command": "marginNotes.deleteThread", "when": "false" },
+        { "command": "marginNotes.resolveThread", "when": "false" },
+        { "command": "marginNotes.reopenThread", "when": "false" },
+        { "command": "marginNotes.revealThread", "when": "false" },
+        { "command": "marginNotes.filterTree", "when": "false" }
+      ],
+      "editor/context": [
+        {
+          "command": "marginNotes.addComment",
+          "group": "marginNotes@1",
+          "when": "editorTextFocus && resourceScheme == file"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "marginNotes.toggleMargin",
+          "group": "navigation@90",
+          "when": "resourceScheme == file && config.marginNotes.showMarginButton"
+        }
+      ],
+      "comments/commentThread/context": [
+        {
+          "command": "marginNotes.createThread",
+          "group": "inline",
+          "when": "commentController == marginNotes && commentThreadIsEmpty"
+        },
+        {
+          "command": "marginNotes.reply",
+          "group": "inline",
+          "when": "commentController == marginNotes && !commentThreadIsEmpty"
+        }
+      ],
+      "comments/commentThread/title": [
+        {
+          "command": "marginNotes.changeCategory",
+          "group": "inline@1",
+          "when": "commentController == marginNotes && !commentThreadIsEmpty"
+        },
+        {
+          "command": "marginNotes.resolveThread",
+          "group": "inline@2",
+          "when": "commentController == marginNotes && commentThread =~ /\\bopen\\b/"
+        },
+        {
+          "command": "marginNotes.reopenThread",
+          "group": "inline@2",
+          "when": "commentController == marginNotes && commentThread =~ /\\bresolved\\b/"
+        },
+        {
+          "command": "marginNotes.deleteThread",
+          "group": "inline@3",
+          "when": "commentController == marginNotes && !commentThreadIsEmpty"
+        }
+      ],
+      "comments/comment/title": [
+        {
+          "command": "marginNotes.editComment",
+          "group": "inline@1",
+          "when": "commentController == marginNotes"
+        },
+        {
+          "command": "marginNotes.deleteComment",
+          "group": "inline@2",
+          "when": "commentController == marginNotes"
+        }
+      ],
+      "comments/comment/context": [
+        {
+          "command": "marginNotes.cancelEdit",
+          "group": "inline@1",
+          "when": "commentController == marginNotes"
+        },
+        {
+          "command": "marginNotes.saveEdit",
+          "group": "inline@2",
+          "when": "commentController == marginNotes"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "marginNotes.filterTree",
+          "group": "navigation@1",
+          "when": "view == marginNotes.overview"
+        },
+        {
+          "command": "marginNotes.exportComments",
+          "group": "navigation@3",
+          "when": "view == marginNotes.overview"
+        },
+        {
+          "command": "marginNotes.toggleMargin",
+          "group": "navigation@4",
+          "when": "view == marginNotes.overview"
+        },
+        {
+          "command": "marginNotes.deleteAllResolved",
+          "group": "more@1",
+          "when": "view == marginNotes.overview"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "marginNotes.reattachOrphan",
+          "group": "inline@1",
+          "when": "view == marginNotes.overview && viewItem =~ /\\borphaned\\b/"
+        },
+        {
+          "command": "marginNotes.changeCategory",
+          "group": "inline@2",
+          "when": "view == marginNotes.overview && viewItem =~ /\\bthread\\b/"
+        },
+        {
+          "command": "marginNotes.resolveThread",
+          "group": "inline@3",
+          "when": "view == marginNotes.overview && viewItem =~ /\\bopen\\b/"
+        },
+        {
+          "command": "marginNotes.reopenThread",
+          "group": "inline@3",
+          "when": "view == marginNotes.overview && viewItem =~ /\\bresolved\\b/"
+        },
+        {
+          "command": "marginNotes.deleteThread",
+          "group": "inline@4",
+          "when": "view == marginNotes.overview && viewItem =~ /\\bthread\\b/"
+        }
+      ]
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "marginNotes",
+          "title": "Margin Notes",
+          "icon": "media/notes.svg"
+        }
+      ]
+    },
+    "views": {
+      "marginNotes": [
+        {
+          "id": "marginNotes.overview",
+          "name": "Comments"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "marginNotes.overview",
+        "contents": "No comments yet.\nClick the + in the gutter of any line, or select code and choose Add Comment from the context menu.\n[Add Comment](command:marginNotes.addComment)"
+      }
+    ],
+    "configuration": {
+      "title": "Margin Notes",
+      "properties": {
+        "marginNotes.storageFolder": {
+          "type": "string",
+          "default": ".codecomments",
+          "markdownDescription": "Folder, relative to each workspace folder, where comment sidecar files are kept."
+        },
+        "marginNotes.commitComments": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Leave the storage folder visible to git. When off, the folder is added to `.git/info/exclude` (local, never committed)."
+        },
+        "marginNotes.categories": {
+          "type": "array",
+          "markdownDescription": "Comment categories: an `id`, a `label` and a `colour` (hex, such as `#3b82f6`).",
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "label",
+              "colour"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              },
+              "colour": {
+                "type": "string"
+              }
+            }
+          },
+          "default": [
+            { "id": "note", "label": "Note", "colour": "#3b82f6" },
+            { "id": "question", "label": "Question", "colour": "#a855f7" },
+            { "id": "todo", "label": "To do", "colour": "#f59e0b" },
+            { "id": "bug", "label": "Bug", "colour": "#ef4444" },
+            { "id": "idea", "label": "Idea", "colour": "#22c55e" }
+          ]
+        },
+        "marginNotes.showResolved": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Show resolved threads in the editor and the margin panel."
+        },
+        "marginNotes.contextLines": {
+          "type": "integer",
+          "default": 2,
+          "minimum": 0,
+          "maximum": 20,
+          "markdownDescription": "Lines above and below a comment's code stored for re-anchoring."
+        },
+        "marginNotes.autoOpenMargin": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Open the margin panel when a file with comments opens."
+        },
+        "marginNotes.expandInlineOnReveal": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Expand the inline thread when jumping to a comment from the margin panel or the sidebar."
+        },
+        "marginNotes.showMarginButton": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Show the Toggle Margin button in the editor title bar."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "npm run check-types && node esbuild.js",
+    "watch": "node esbuild.js --watch",
+    "package": "npm run check-types && node esbuild.js --production",
+    "check-types": "tsc --noEmit",
+    "compile-tests": "tsc -p . --outDir out && node esbuild.js",
+    "test": "npm run compile-tests && vscode-test",
+    "test:unit": "tsc -p . --outDir out && mocha \"out/test/*.test.js\""
+  },
+  "dependencies": {
+    "diff-match-patch": "^1.0.5"
+  },
+  "devDependencies": {
+    "@types/diff-match-patch": "^1.0.36",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^20.19.43",
+    "@types/vscode": "1.85.0",
+    "@vscode/test-cli": "^0.0.15",
+    "@vscode/test-electron": "^3.1.0",
+    "@vscode/vsce": "^4.1.1",
+    "esbuild": "^0.28.2",
+    "mocha": "^12.0.3",
+    "typescript": "^5.9.3"
+  }
+}

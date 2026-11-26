@@ -6,3 +6,6 @@ dist/
 .codecomments/
 private/
 PROGRESS.md
+.impeccable/
+test-fixtures/workspace/sample.py
+test-fixtures/workspace/.codecomments/
