@@ -211,15 +211,31 @@
       const el = boxes.get(t.id).el;
       el.hidden = true;
     }
+    // Reconcile the orphan section in place: moving a box out of the DOM and
+    // back would take focus from a reply or edit being typed in it.
     const orphaned = state.threads.filter((t) => t.orphaned);
-    orphans.replaceChildren();
-    if (orphaned.length > 0) {
-      orphans.append(h('h2', {}, [`Orphaned (${orphaned.length})`]));
-      for (const t of orphaned) {
-        const el = boxes.get(t.id).el;
+    const wanted = orphaned.map((t) => boxes.get(t.id).el);
+    let heading = orphans.querySelector('h2');
+    if (orphaned.length > 0 && !heading) {
+      heading = h('h2');
+      orphans.prepend(heading);
+    }
+    for (const child of [...orphans.children]) {
+      if ((child !== heading || orphaned.length === 0) && !wanted.includes(/** @type {HTMLElement} */ (child))) {
+        child.remove();
+      }
+    }
+    if (heading && orphaned.length > 0) {
+      heading.textContent = `Orphaned (${orphaned.length})`;
+      /** @type {Element} */
+      let prev = heading;
+      for (const el of wanted) {
         el.hidden = false;
         el.style.top = '';
-        orphans.append(el);
+        if (prev.nextElementSibling !== el) {
+          prev.after(el);
+        }
+        prev = el;
       }
     }
     lane.style.height = `${Math.max(window.innerHeight, bottom + GAP)}px`;
