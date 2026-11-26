@@ -202,6 +202,36 @@ describe('SidecarStore', () => {
     assert.ok(!store.isOwnWrite(path.join(root, 'other.json'), ''));
   });
 
+  it('never lets a slow older write land after a newer one', async () => {
+    const root = tempDir();
+    const key = { root, rel: 'a.ts' };
+    const file = sidecarPath(root, '.codecomments', 'a.ts');
+    const saved = { ...io };
+    let threads = [thread('old')];
+    let renames = 0;
+    // The first rename is slow (Windows retrying a refused rename); later ones are quick.
+    io.rename = async (from: string, to: string) => {
+      if (++renames === 1) {
+        await new Promise((r) => setTimeout(r, 150));
+      }
+      return saved.rename(from, to);
+    };
+    try {
+      const store = new SidecarStore(() => '.codecomments', () => threads, assert.fail, undefined, 1);
+      store.schedule(key);
+      await new Promise((r) => setTimeout(r, 20));
+      threads = [thread('new')];
+      store.schedule(key);
+      await new Promise((r) => setTimeout(r, 20));
+      assert.ok(store.isOwnWrite(file, undefined), 'events during the writes are ignored');
+      await store.flush();
+      assert.strictEqual(parseSidecar(fs.readFileSync(file, 'utf8')).threads[0].id, 'new');
+      assert.ok(store.isOwnWrite(file, fs.readFileSync(file, 'utf8')));
+    } finally {
+      Object.assign(io, saved);
+    }
+  });
+
   it('ignores watcher events while its own write is in flight', async () => {
     const root = tempDir();
     const key = { root, rel: 'a.ts' };

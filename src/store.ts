@@ -134,8 +134,10 @@ export class SidecarStore {
   private readonly pending = new Set<Promise<void>>();
   /** What this store last wrote to each sidecar ('' for a delete), to tell its own writes from others'. */
   private readonly lastWritten = new Map<string, string>();
-  /** Sidecars being written now: until the rename lands, the disk still holds the old content. */
-  private readonly inFlight = new Set<string>();
+  /** Writes queued or running per sidecar: until the last rename lands, the disk holds older content. */
+  private readonly inFlight = new Map<string, number>();
+  /** The last write queued per sidecar, so writes of one file run one after another, in order. */
+  private readonly chains = new Map<string, Promise<void>>();
 
   constructor(
     private readonly storageFolder: () => string,
@@ -154,16 +156,42 @@ export class SidecarStore {
     }
     const timer = setTimeout(() => {
       this.timers.delete(k);
-      this.track(this.write(key));
+      this.enqueue(key);
     }, this.delayMs);
     this.timers.set(k, { key, timer });
+  }
+
+  /**
+   * Starts a write once the previous write of the same file has finished. A
+   * slow write (Windows retrying a refused rename) could otherwise land after
+   * a newer one and leave stale content on disk. Each write reads the threads
+   * when it runs, so the last one written is always the newest.
+   */
+  private enqueue(key: FileKey): void {
+    const file = sidecarPath(key.root, this.storageFolder(), key.rel);
+    this.inFlight.set(file, (this.inFlight.get(file) ?? 0) + 1);
+    const next = (this.chains.get(file) ?? Promise.resolve()).then(() => this.write(key, file));
+    this.chains.set(file, next);
+    this.track(
+      next.finally(() => {
+        const n = (this.inFlight.get(file) ?? 1) - 1;
+        if (n <= 0) {
+          this.inFlight.delete(file);
+        } else {
+          this.inFlight.set(file, n);
+        }
+        if (this.chains.get(file) === next) {
+          this.chains.delete(file);
+        }
+      }),
+    );
   }
 
   /** Writes every queued change now. */
   async flush(): Promise<void> {
     for (const { key, timer } of this.timers.values()) {
       clearTimeout(timer);
-      this.track(this.write(key));
+      this.enqueue(key);
     }
     this.timers.clear();
     while (this.pending.size > 0) {
@@ -176,10 +204,8 @@ export class SidecarStore {
     p.finally(() => this.pending.delete(p));
   }
 
-  private async write(key: FileKey): Promise<void> {
-    const file = sidecarPath(key.root, this.storageFolder(), key.rel);
+  private async write(key: FileKey, file: string): Promise<void> {
     const threads = this.getThreads(key);
-    this.inFlight.add(file);
     try {
       if (threads.length === 0) {
         this.lastWritten.set(file, '');
@@ -197,8 +223,6 @@ export class SidecarStore {
       }
     } catch (e) {
       this.onError(`Margin Notes could not save comments for ${key.rel}: ${(e as Error).message}`);
-    } finally {
-      this.inFlight.delete(file);
     }
   }
 

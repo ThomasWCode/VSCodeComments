@@ -12,7 +12,7 @@ import { runExport } from './export';
 import { MarginPanel, PanelActions } from './marginPanel';
 import { CommentModel, FileKey, NoteThread, ThreadStatus } from './model';
 import { revealThread, RevealDeps } from './reveal';
-import { isTrackedByGit, parseSidecar, relFromSidecar, setGitExclude, SidecarStore, untrack } from './store';
+import { isTrackedByGit, parseSidecar, relFromSidecar, serialise, setGitExclude, SidecarStore, untrack } from './store';
 import { OverviewTree } from './treeView';
 
 export interface MarginNotesApi {
@@ -246,10 +246,15 @@ export function activate(context: vscode.ExtensionContext): MarginNotesApi {
         }
         content = undefined;
       }
+      const key: FileKey = { root: folder.uri.fsPath, rel };
       if (store.isOwnWrite(uri.fsPath, content)) {
         return;
       }
-      const key: FileKey = { root: folder.uri.fsPath, rel };
+      // Nothing to reload when the disk already holds what the model would write.
+      const threadsNow = model.threads(key);
+      if (content === undefined ? threadsNow.length === 0 : content === serialise(rel, threadsNow)) {
+        return;
+      }
       try {
         const threads = content === undefined ? [] : parseSidecar(content).threads;
         model.setThreads(key, threads, 'load', false);

@@ -76,6 +76,8 @@ describe('Margin panel', function () {
         active: e && { file: e.document.uri.fsPath, column: e.viewColumn, selection: e.selection },
         visible: vscode.window.visibleTextEditors.map((v) => ({ file: v.document.uri.fsPath, column: v.viewColumn, selection: v.selection })),
         tabs: vscode.window.tabGroups.all.map((g) => ({ column: g.viewColumn, active: g.isActive, tabs: g.tabs.map((t) => t.label) })),
+        threads: a.model.all().map(({ thread }) => ({ id: thread.id.slice(0, 8), line: thread.anchor.startLine, orphaned: thread.orphaned })),
+        received: a.panel.received.map((m) => m.type),
       };
       throw new Error(`${(err as Error).message}\nstate: ${JSON.stringify(state)}`);
     }
